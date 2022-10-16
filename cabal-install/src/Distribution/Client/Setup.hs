@@ -56,7 +56,7 @@ module Distribution.Client.Setup
 import Prelude ()
 import Distribution.Client.Compat.Prelude hiding (get)
 
-import Distribution.Client.Types.Credentials (Username (..), Password (..))
+import Distribution.Client.Types.Credentials (Username (..), Password (..), Token (..))
 import Distribution.Client.Types.Repo (RemoteRepo(..), LocalRepo (..))
 import Distribution.Client.Types.AllowNewer (AllowNewer(..), AllowOlder(..), RelaxDeps(..))
 import Distribution.Client.Types.WriteGhcEnvironmentFilesPolicy
@@ -1988,6 +1988,7 @@ data UploadFlags = UploadFlags {
     uploadUsername    :: Flag Username,
     uploadPassword    :: Flag Password,
     uploadPasswordCmd :: Flag [String],
+    uploadToken       :: Flag Token,
     uploadVerbosity   :: Flag Verbosity
   } deriving Generic
 
