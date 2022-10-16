@@ -1988,7 +1988,7 @@ data UploadFlags = UploadFlags {
     uploadUsername    :: Flag Username,
     uploadPassword    :: Flag Password,
     uploadPasswordCmd :: Flag [String],
-    uploadToken       :: Flag Token,
+    uploadToken       :: Flag (Maybe Token),
     uploadVerbosity   :: Flag Verbosity
   } deriving Generic
 
@@ -2051,8 +2051,8 @@ uploadCommand = CommandUI {
       ,option ['t'] ["token"]
         "Hackage authentication token"
         uploadToken (\v flags -> flags { uploadToken = v })
-        (reqArg' "TOKEN" (toFlag . Token)
-                         (flagToList . fmap unToken))
+        (optArg' "TOKEN" (toFlag . fmap Token)
+                         (flagToList . fmap (fmap unToken)))
       ]
   }
 
