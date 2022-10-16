@@ -1999,6 +1999,7 @@ defaultUploadFlags = UploadFlags {
     uploadUsername    = mempty,
     uploadPassword    = mempty,
     uploadPasswordCmd = mempty,
+    uploadToken       = mempty,
     uploadVerbosity   = toFlag normal
   }
 
@@ -2046,6 +2047,12 @@ uploadCommand = CommandUI {
         "Command to get Hackage password."
         uploadPasswordCmd (\v flags -> flags { uploadPasswordCmd = v })
         (reqArg' "PASSWORD" (Flag . words) (fromMaybe [] . flagToMaybe))
+
+      ,option ['t'] ["token"]
+        "Hackage authentication token"
+        uploadToken (\v flags -> flags { uploadToken = v })
+        (reqArg' "TOKEN" (toFlag . Token)
+                         (flagToList . fmap unToken))
       ]
   }
 
