@@ -455,6 +455,7 @@ instance Semigroup SavedConfig where
         uploadUsername    = combine uploadUsername,
         uploadPassword    = combine uploadPassword,
         uploadPasswordCmd = combine uploadPasswordCmd,
+        uploadToken       = combine uploadToken,
         uploadVerbosity   = combine uploadVerbosity
         }
         where
