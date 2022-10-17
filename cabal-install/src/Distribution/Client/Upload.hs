@@ -28,8 +28,6 @@ import System.FilePath  ((</>), takeExtension, takeFileName, dropExtension)
 import qualified System.FilePath.Posix as FilePath.Posix ((</>))
 import System.Directory
 
-type Auth = Maybe (String, String)
-
 -- > stripExtensions ["tar", "gz"] "foo.tar.gz"
 -- Just "foo"
 -- > stripExtensions ["tar", "gz"] "foo.gz.tar"
@@ -203,7 +201,7 @@ report verbosity repoCtxt mUsername mPassword = do
                       (remoteRepoURI remoteRepo) [(report', Just buildLog)]
                     return ()
 
-handlePackage :: HttpTransport -> Verbosity -> URI -> URI -> Auth
+handlePackage :: HttpTransport -> Verbosity -> URI -> URI -> Maybe (String, String)
               -> IsCandidate -> FilePath -> IO ()
 handlePackage transport verbosity uri packageUri auth isCandidate path =
   do resp <- postHttpFile transport verbosity uri path auth
