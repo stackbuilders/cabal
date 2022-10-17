@@ -1,29 +1,23 @@
 module Distribution.Client.Types.Credentials (
     Auth (..),
+    Credentials (..),
     Username (..),
     Password (..),
-    Token (..),
-    unAuthUsername,
-    unAuthPassword,
-    unAuthToken
+    Token (..)
 ) where
 
-import Prelude (String, Maybe (..))
+import Prelude (String)
 
-data Auth = AuthCredentials Username Password | AuthToken Token
+data Auth
+  = AuthCredentials Credentials
+  | AuthToken Token
+
+data Credentials
+  = Credentials
+      { credentialsUsername :: Username
+      , credentialsPassword :: Password
+      }
 
 newtype Username = Username { unUsername :: String }
 newtype Password = Password { unPassword :: String }
 newtype Token = Token { unToken :: String }
-
-unAuthUsername :: Auth -> Maybe Username
-unAuthUsername (AuthCredentials username _) = Just username
-unAuthUsername _ = Nothing
-
-unAuthPassword :: Auth -> Maybe Password
-unAuthPassword (AuthCredentials _ password) = Just password
-unAuthPassword _ = Nothing
-
-unAuthToken :: Auth -> Maybe Token
-unAuthToken (AuthToken token) = Just token
-unAuthToken _ = Nothing 
