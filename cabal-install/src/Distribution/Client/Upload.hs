@@ -3,7 +3,8 @@ module Distribution.Client.Upload (upload, uploadDoc, report) where
 import Distribution.Client.Compat.Prelude
 import qualified Prelude as Unsafe (tail, head, read)
 
-import Distribution.Client.Types.Credentials ( Username(..), Password(..) )
+import Distribution.Client.Types.Credentials
+         ( Credentials(..), Username(..), Password(..) )
 import Distribution.Client.Types.Repo (Repo, RemoteRepo(..), maybeRepoRemote)
 import Distribution.Client.Types.RepoName (unRepoName)
 import Distribution.Client.HttpUtils
@@ -71,9 +72,9 @@ upload verbosity repoCtxt mUsername mPassword isCandidate paths = do
                   IsPublished -> ""
               ]
         }
-    Username username <- maybe (promptUsername domain) return mUsername
-    Password password <- maybe (promptPassword domain) return mPassword
-    let auth = Just (username,password)
+    username <- maybe (promptUsername domain) return mUsername
+    password <- maybe (promptPassword domain) return mPassword
+    let auth = Just $ Credentials username password
     for_ paths $ \path -> do
       notice verbosity $ "Uploading " ++ path ++ "... "
       case fmap takeFileName (stripExtensions ["tar", "gz"] path) of
@@ -201,10 +202,11 @@ report verbosity repoCtxt mUsername mPassword = do
                       (remoteRepoURI remoteRepo) [(report', Just buildLog)]
                     return ()
 
-handlePackage :: HttpTransport -> Verbosity -> URI -> URI -> Maybe (String, String)
+handlePackage :: HttpTransport -> Verbosity -> URI -> URI -> Maybe Credentials
               -> IsCandidate -> FilePath -> IO ()
-handlePackage transport verbosity uri packageUri auth isCandidate path =
-  do resp <- postHttpFile transport verbosity uri path auth
+handlePackage transport verbosity uri packageUri mCredentials isCandidate path =
+  do let auth = fmap (\c -> (unUsername $ credentialsUsername c, unPassword $ credentialsPassword c)) mCredentials
+     resp <- postHttpFile transport verbosity uri path auth
      case resp of
        (code,warnings) | code `elem` [200, 204] ->
           notice verbosity $ okMessage isCandidate ++
