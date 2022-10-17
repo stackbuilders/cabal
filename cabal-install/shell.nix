@@ -3,7 +3,7 @@
 pkgs.mkShell {
   nativeBuildInputs = [
     pkgs.cabal-install
-    pkgs.ghc
+    pkgs.haskell.compiler.ghc94
     pkgs.zlib
   ];
 }

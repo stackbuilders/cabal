@@ -2,3 +2,4 @@
 /*.cabal.hackage
 /*-[0-9]*.tar.gz
 /*-[0-9]*/
+.direnv/
