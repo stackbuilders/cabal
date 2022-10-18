@@ -41,9 +41,9 @@ stripExtensions exts path = foldM f path (reverse exts)
     | otherwise = Nothing
 
 upload :: Verbosity -> RepoContext
-       -> Maybe Username -> Maybe Password -> IsCandidate -> [FilePath]
+       -> Maybe Credentials -> IsCandidate -> [FilePath]
        -> IO ()
-upload verbosity repoCtxt mUsername mPassword isCandidate paths = do
+upload verbosity repoCtxt mCredentials isCandidate paths = do
     let repos :: [Repo]
         repos = repoContextRepos repoCtxt
     transport  <- repoContextGetTransport repoCtxt
@@ -72,8 +72,10 @@ upload verbosity repoCtxt mUsername mPassword isCandidate paths = do
                   IsPublished -> ""
               ]
         }
-    username <- maybe (promptUsername domain) return mUsername
-    password <- maybe (promptPassword domain) return mPassword
+    username <- maybe (promptUsername domain) return
+                      (fmap credentialsUsername mCredentials)
+    password <- maybe (promptPassword domain) return
+                      (fmap credentialsPassword mCredentials)
     let auth = Just $ Credentials username password
     for_ paths $ \path -> do
       notice verbosity $ "Uploading " ++ path ++ "... "

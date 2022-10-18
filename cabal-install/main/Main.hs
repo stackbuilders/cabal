@@ -108,7 +108,7 @@ import Distribution.Client.Sandbox            (loadConfigOrSandboxConfig
                                               ,findSavedDistPref
                                               ,updateInstallDirs)
 import Distribution.Client.Tar                (createTarGzFile)
-import Distribution.Client.Types.Credentials  (Password (..))
+import Distribution.Client.Types.Credentials  (Credentials(..), Password(..))
 import Distribution.Client.Init               (initCmd)
 import Distribution.Client.Manpage            (manpageCmd)
 import Distribution.Client.ManpageFlags       (ManpageFlags (..))
@@ -827,8 +827,9 @@ uploadAction uploadFlags extraArgs globalFlags = do
     else do
       Upload.upload verbosity
                     repoContext
-                    (flagToMaybe $ uploadUsername uploadFlags')
-                    maybe_password
+                    ( Credentials <$> (flagToMaybe $ uploadUsername uploadFlags')
+                                  <*> maybe_password
+                    )
                     (fromFlag (uploadCandidate uploadFlags'))
                     tarfiles
     where
