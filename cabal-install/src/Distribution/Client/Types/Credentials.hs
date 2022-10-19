@@ -4,7 +4,8 @@ module Distribution.Client.Types.Credentials (
     Username (..),
     Password (..),
     Token (..),
-    unAuthCredentials
+    unAuthCredentials,
+    unCredentials
 ) where
 
 import Prelude (Maybe(..), String)
@@ -24,5 +25,8 @@ newtype Password = Password { unPassword :: String }
 newtype Token = Token { unToken :: String }
 
 unAuthCredentials :: Auth -> Maybe Credentials
-unAuthCredentials (AuthCredentials credentials) = Just credentials
+unAuthCredentials (AuthCredentials c) = Just c
 unAuthCredentials _ = Nothing
+
+unCredentials :: Credentials -> (String, String)
+unCredentials (Credentials (Username u) (Password p)) = (u, p)

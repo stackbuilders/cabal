@@ -39,6 +39,7 @@ import Distribution.Client.Version
          ( cabalInstallVersion )
 import Distribution.Client.Types
          ( unRepoName, RemoteRepo(..) )
+import qualified Distribution.Client.Types.Credentials as Credentials
 import Distribution.System
          ( buildOS, buildArch )
 import qualified System.FilePath.Posix as FilePath.Posix
@@ -280,7 +281,7 @@ data HttpTransport = HttpTransport {
       -- | POST a file resource to a URI using multipart\/form-data encoding,
       -- with optional auth (username, password) and return the HTTP status
       -- code and any error string.
-      postHttpFile :: Verbosity -> URI -> FilePath -> Maybe Auth
+      postHttpFile :: Verbosity -> URI -> FilePath -> Maybe Credentials.Auth
                    -> IO (HttpCode, String),
 
       -- | PUT a file resource to a URI, with optional auth
@@ -430,8 +431,9 @@ curlTransport prog =
           }
         Nothing -> progInvocation
 
-    posthttpfile verbosity uri path auth = do
-        let args = [ show uri
+    posthttpfile verbosity uri path mAuth = do
+        let mCredentials = join $ fmap Credentials.unAuthCredentials mAuth
+            args = [ show uri
                    , "--form", "package=@"++path
                    , "--write-out", "\n%{http_code}"
                    , "--user-agent", userAgent
@@ -439,7 +441,8 @@ curlTransport prog =
                    , "--header", "Accept: text/plain"
                    , "--location"
                    ]
-        resp <- getProgramInvocationOutput verbosity $ addAuthConfig auth uri
+        resp <- getProgramInvocationOutput verbosity $
+                  addAuthConfig (fmap Credentials.unCredentials mCredentials) uri
                   (programInvocation prog args)
         (code, err, _etag) <- parseResponse verbosity uri resp ""
         return (code, err)
@@ -528,7 +531,7 @@ wgetTransport prog =
 
     posthttp = noPostYet
 
-    posthttpfile verbosity  uri path auth =
+    posthttpfile verbosity  uri path mAuth =
         withTempFile (takeDirectory path)
                      (takeFileName path) $ \tmpFile tmpHandle ->
         withTempFile (takeDirectory path) "response" $
@@ -537,14 +540,19 @@ wgetTransport prog =
           (body, boundary) <- generateMultipartBody path
           LBS.hPut tmpHandle body
           hClose tmpHandle
-          let args = [ "--post-file=" ++ tmpFile
+          let mCredentials = join $ fmap Credentials.unAuthCredentials mAuth
+              args = [ "--post-file=" ++ tmpFile
                      , "--user-agent=" ++ userAgent
                      , "--server-response"
                      , "--output-document=" ++ responseFile
                      , "--header=Accept: text/plain"
                      , "--header=Content-type: multipart/form-data; " ++
                                               "boundary=" ++ boundary ]
-          out <- runWGet verbosity (addUriAuth auth uri) args
+          out <- runWGet verbosity
+                         ( addUriAuth (fmap Credentials.unCredentials mCredentials)
+                                      uri
+                         )
+                         args
           (code, _etag) <- parseOutput verbosity uri out
           withFile responseFile ReadMode $ \hnd -> do
             resp <- hGetContents hnd
@@ -654,7 +662,7 @@ powershellTransport prog =
 
     posthttp = noPostYet
 
-    posthttpfile verbosity uri path auth =
+    posthttpfile verbosity uri path mAuth =
       withTempFile (takeDirectory path)
                    (takeFileName path) $ \tmpFile tmpHandle -> do
         (body, boundary) <- generateMultipartBody path
@@ -662,11 +670,14 @@ powershellTransport prog =
         hClose tmpHandle
         fullPath <- canonicalizePath tmpFile
 
-        let contentHeader = Header HdrContentType
+        let mCredentials = join $ fmap Credentials.unAuthCredentials mAuth
+            contentHeader = Header HdrContentType
               ("multipart/form-data; boundary=" ++ boundary)
         resp <- runPowershellScript verbosity $ webclientScript
           (escape (show uri))
-          (setupHeaders (contentHeader : extraHeaders) ++ setupAuth auth)
+          ( setupHeaders (contentHeader : extraHeaders) ++
+            setupAuth (fmap Credentials.unCredentials mCredentials)
+          )
           (uploadFileAction "POST" uri fullPath)
           uploadFileCleanup
         parseUploadResponse verbosity uri resp
@@ -820,9 +831,10 @@ plainHttpTransport =
 
     posthttp = noPostYet
 
-    posthttpfile verbosity uri path auth = do
+    posthttpfile verbosity uri path mAuth = do
       (body, boundary) <- generateMultipartBody path
-      let headers = [ Header HdrContentType
+      let mCredentials = join $ fmap Credentials.unAuthCredentials mAuth
+          headers = [ Header HdrContentType
                              ("multipart/form-data; boundary="++boundary)
                     , Header HdrContentLength (show (LBS8.length body))
                     , Header HdrAccept ("text/plain")
@@ -833,7 +845,9 @@ plainHttpTransport =
                   rqHeaders = headers,
                   rqBody    = body
                 }
-      (_, resp) <- cabalBrowse verbosity auth (request req)
+      (_, resp) <- cabalBrowse verbosity
+                               (fmap Credentials.unCredentials mCredentials)
+                               (request req)
       return (convertRspCode (rspCode resp), rspErrorString resp)
 
     puthttpfile verbosity uri path auth headers = do

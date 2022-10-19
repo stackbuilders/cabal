@@ -208,12 +208,7 @@ report verbosity repoCtxt mUsername mPassword = do
 handlePackage :: HttpTransport -> Verbosity -> URI -> URI -> Maybe Auth
               -> IsCandidate -> FilePath -> IO ()
 handlePackage transport verbosity uri packageUri mAuth isCandidate path =
-  do let credentials = fmap ( \c -> ( unUsername $ credentialsUsername c
-                                    , unPassword $ credentialsPassword c
-                                    )
-                            )
-                            (join $ fmap unAuthCredentials mAuth)
-     resp <- postHttpFile transport verbosity uri path credentials
+  do resp <- postHttpFile transport verbosity uri path mAuth
      case resp of
        (code,warnings) | code `elem` [200, 204] ->
           notice verbosity $ okMessage isCandidate ++
