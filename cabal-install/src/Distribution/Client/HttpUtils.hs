@@ -417,10 +417,13 @@ curlTransport prog =
                                (Just (URIAuth u _ _)) | not (null u) -> Just $ filter (/= '@') u
                                _ -> Nothing
       -- prefer passed in auth to auth derived from uri. If neither exist, then no auth
-      let mbAuthString = case (explicitAuth, uriDerivedAuth) of
-                          (Just (uname, passwd), _) -> Just (uname ++ ":" ++ passwd)
-                          (Nothing, Just a) -> Just a
-                          (Nothing, Nothing) -> Nothing
+      let mbAuthString =
+            case (explicitAuth, uriDerivedAuth) of
+              (Just (Credentials.AuthCredentials c), _) ->
+                let (u, p) = Credentials.unCredentials c
+                in Just (u ++ ":" ++ p)
+              (Nothing, Just a) -> Just a
+              _ -> Nothing
       case mbAuthString of
         Just up -> progInvocation
           { progInvokeInput = Just . IODataText . unlines $
@@ -432,8 +435,7 @@ curlTransport prog =
         Nothing -> progInvocation
 
     posthttpfile verbosity uri path mAuth = do
-        let mCredentials = join $ fmap Credentials.unAuthCredentials mAuth
-            args = [ show uri
+        let args = [ show uri
                    , "--form", "package=@"++path
                    , "--write-out", "\n%{http_code}"
                    , "--user-agent", userAgent
@@ -442,12 +444,12 @@ curlTransport prog =
                    , "--location"
                    ]
         resp <- getProgramInvocationOutput verbosity $
-                  addAuthConfig (fmap Credentials.unCredentials mCredentials) uri
-                  (programInvocation prog args)
+                  addAuthConfig mAuth uri
+                    (programInvocation prog args)
         (code, err, _etag) <- parseResponse verbosity uri resp ""
         return (code, err)
 
-    puthttpfile verbosity uri path auth headers = do
+    puthttpfile verbosity uri path mHttpAuth headers = do
         let args = [ show uri
                    , "--request", "PUT", "--data-binary", "@"++path
                    , "--write-out", "\n%{http_code}"
@@ -459,8 +461,9 @@ curlTransport prog =
                 ++ concat
                    [ ["--header", show name ++ ": " ++ value]
                    | Header name value <- headers ]
-        resp <- getProgramInvocationOutput verbosity $ addAuthConfig auth uri
-                  (programInvocation prog args)
+        resp <- getProgramInvocationOutput verbosity $
+                  addAuthConfig (fmap Credentials.mkAuthCredentials mHttpAuth) uri
+                    (programInvocation prog args)
         (code, err, _etag) <- parseResponse verbosity uri resp ""
         return (code, err)
 
