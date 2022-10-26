@@ -444,7 +444,7 @@ curlTransport prog =
 
     addAuthTokenConfig :: Credentials.Token -> ProgramInvocation -> ProgramInvocation
     addAuthTokenConfig token progInvocation =
-      progInvocation
+      trace "Using token" progInvocation
           { progInvokeInput = Just . IODataText . unlines $
               [ "--header \"Authorization: X-ApiKey" ++ Credentials.unToken token ++ " \""
               ]
