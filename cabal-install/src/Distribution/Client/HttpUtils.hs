@@ -412,43 +412,43 @@ curlTransport prog =
 
     addAuthConfig :: Maybe Credentials.Auth -> URI -> ProgramInvocation -> ProgramInvocation
     addAuthConfig explicitAuth uri progInvocation =
-      case explicitAuth of
-        (Just (Credentials.AuthCredentials c)) -> addAuthCredentialsConfig (Just c) uri progInvocation
-        (Just (Credentials.AuthToken t)) -> addAuthTokenConfig t progInvocation
-        Nothing -> addAuthCredentialsConfig Nothing uri progInvocation
+        case explicitAuth of
+            (Just (Credentials.AuthCredentials c)) -> addAuthCredentialsConfig (Just c) uri progInvocation
+            (Just (Credentials.AuthToken t)) -> addAuthTokenConfig t progInvocation
+            Nothing -> addAuthCredentialsConfig Nothing uri progInvocation
 
     addAuthCredentialsConfig :: Maybe Credentials.Credentials -> URI -> ProgramInvocation -> ProgramInvocation
-    addAuthCredentialsConfig credentials uri progInvocation = do
-      -- attempt to derive a u/p pair from the uri authority if one exists
-      -- all `uriUserInfo` values have '@' as a suffix. drop it.
-      let uriDerivedAuth = case uriAuthority uri of
-                               (Just (URIAuth u _ _)) | not (null u) -> Just $ filter (/= '@') u
-                               _ -> Nothing
-      -- prefer passed in auth to auth derived from uri. If neither exist, then no auth
-      let mbAuthString =
-            case (credentials, uriDerivedAuth) of
-              (Just c, _) ->
-                let (u, p) = Credentials.unCredentials c
-                in Just (u ++ ":" ++ p)
-              (Nothing, Just a) -> Just a
-              _ -> Nothing
-      case mbAuthString of
-        Just up -> progInvocation
-          { progInvokeInput = Just . IODataText . unlines $
-              [ "--digest"
-              , "--user " ++ up
-              ]
-          , progInvokeArgs = ["--config", "-"] ++ progInvokeArgs progInvocation
-          }
-        Nothing -> progInvocation
+    addAuthCredentialsConfig mCredentials uri progInvocation = do
+        -- attempt to derive a u/p pair from the uri authority if one exists
+        -- all `uriUserInfo` values have '@' as a suffix. drop it.
+        let uriDerivedAuth = case uriAuthority uri of
+                                 (Just (URIAuth u _ _)) | not (null u) -> Just $ filter (/= '@') u
+                                 _ -> Nothing
+        -- prefer passed in auth to auth derived from uri. If neither exist, then no auth
+        let mbAuthString =
+              case (mCredentials, uriDerivedAuth) of
+                (Just c, _) ->
+                  let (u, p) = Credentials.unCredentials c
+                  in Just (u ++ ":" ++ p)
+                (Nothing, Just a) -> Just a
+                _ -> Nothing
+        case mbAuthString of
+          Just up -> progInvocation
+            { progInvokeInput = Just . IODataText . unlines $
+                [ "--digest"
+                , "--user " ++ up
+                ]
+            , progInvokeArgs = ["--config", "-"] ++ progInvokeArgs progInvocation
+            }
+          Nothing -> progInvocation
 
     addAuthTokenConfig :: Credentials.Token -> ProgramInvocation -> ProgramInvocation
     addAuthTokenConfig token progInvocation =
-      trace "Using token" progInvocation
-          { progInvokeInput = Just . IODataText . unlines $
-              [ "--header \"Authorization: X-ApiKey" ++ Credentials.unToken token ++ " \""
-              ]
-          }
+        trace "Using token" progInvocation
+            { progInvokeInput = Just . IODataText . unlines $
+                [ "--header \"Authorization: X-ApiKey " ++ Credentials.unToken token ++ "\""
+                ]
+            }
 
     posthttpfile verbosity uri path mAuth = do
         let args = [ show uri
