@@ -410,7 +410,15 @@ curlTransport prog =
 
     posthttp = noPostYet
 
-    addAuthConfig explicitAuth uri progInvocation = do
+    addAuthConfig :: Maybe Credentials.Auth -> URI -> ProgramInvocation -> ProgramInvocation
+    addAuthConfig explicitAuth uri progInvocation =
+      case explicitAuth of
+        (Just (Credentials.AuthCredentials c)) -> addAuthCredentialsConfig (Just c) uri progInvocation
+        (Just (Credentials.AuthToken t)) -> addAuthTokenConfig t progInvocation
+        Nothing -> addAuthCredentialsConfig Nothing uri progInvocation
+
+    addAuthCredentialsConfig :: Maybe Credentials.Credentials -> URI -> ProgramInvocation -> ProgramInvocation
+    addAuthCredentialsConfig credentials uri progInvocation = do
       -- attempt to derive a u/p pair from the uri authority if one exists
       -- all `uriUserInfo` values have '@' as a suffix. drop it.
       let uriDerivedAuth = case uriAuthority uri of
@@ -418,8 +426,8 @@ curlTransport prog =
                                _ -> Nothing
       -- prefer passed in auth to auth derived from uri. If neither exist, then no auth
       let mbAuthString =
-            case (explicitAuth, uriDerivedAuth) of
-              (Just (Credentials.AuthCredentials c), _) ->
+            case (credentials, uriDerivedAuth) of
+              (Just c, _) ->
                 let (u, p) = Credentials.unCredentials c
                 in Just (u ++ ":" ++ p)
               (Nothing, Just a) -> Just a
@@ -433,6 +441,14 @@ curlTransport prog =
           , progInvokeArgs = ["--config", "-"] ++ progInvokeArgs progInvocation
           }
         Nothing -> progInvocation
+
+    addAuthTokenConfig :: Credentials.Token -> ProgramInvocation -> ProgramInvocation
+    addAuthTokenConfig token progInvocation =
+      progInvocation
+          { progInvokeInput = Just . IODataText . unlines $
+              [ "--header \"Authorization: X-ApiKey" ++ Credentials.unToken token ++ " \""
+              ]
+          }
 
     posthttpfile verbosity uri path mAuth = do
         let args = [ show uri
