@@ -108,7 +108,7 @@ import Distribution.Client.Sandbox            (loadConfigOrSandboxConfig
                                               ,findSavedDistPref
                                               ,updateInstallDirs)
 import Distribution.Client.Tar                (createTarGzFile)
-import Distribution.Client.Types.Credentials  (Auth(..), Credentials(..), Password(..))
+import qualified Distribution.Client.Types.Credentials as Credentials
 import Distribution.Client.Init               (initCmd)
 import Distribution.Client.Manpage            (manpageCmd)
 import Distribution.Client.ManpageFlags       (ManpageFlags (..))
@@ -805,9 +805,10 @@ uploadAction uploadFlags extraArgs globalFlags = do
   when (null tarfiles && not (fromFlag (uploadDoc uploadFlags'))) $
     die' verbosity "the 'upload' command expects at least one .tar.gz archive."
   checkTarFiles extraArgs
+  -- TODO: only do this if the token is not present
   maybe_password <-
     case uploadPasswordCmd uploadFlags'
-    of Flag (xs:xss) -> Just . Password <$>
+    of Flag (xs:xss) -> Just . Credentials.Password <$>
                         getProgramInvocationOutput verbosity
                         (simpleProgramInvocation xs xss)
        _             -> pure $ flagToMaybe $ uploadPassword uploadFlags'
@@ -827,11 +828,13 @@ uploadAction uploadFlags extraArgs globalFlags = do
     else do
       Upload.upload verbosity
                     repoContext
-                    ( AuthCredentials <$>
-                        ( Credentials
-                            <$> (flagToMaybe $ uploadUsername uploadFlags')
-                            <*> maybe_password
-                        )
+                    ( case (flagToMaybe $ uploadToken uploadFlags') of
+                        (Just t) -> Credentials.AuthToken <$> t
+                        _ -> Credentials.AuthCredentials <$>
+                               ( Credentials.Credentials
+                                   <$> (flagToMaybe $ uploadUsername uploadFlags')
+                                   <*> maybe_password
+                               )
                     )
                     (fromFlag (uploadCandidate uploadFlags'))
                     tarfiles
