@@ -444,9 +444,11 @@ curlTransport prog =
     addAuthTokenConfig :: Credentials.Token -> ProgramInvocation -> ProgramInvocation
     addAuthTokenConfig token progInvocation =
         progInvocation
-            { progInvokeInput = Just . IODataText . unlines $
-                [ "--header \"Authorization: X-ApiKey " ++ Credentials.unToken token ++ "\""
-                ]
+            -- TODO: change to progInvokeInput?
+            { progInvokeArgs =
+                [ "--header"
+                , "Authorization: X-ApiKey " ++ Credentials.unToken token
+                ] ++ progInvokeArgs progInvocation
             }
 
     posthttpfile verbosity uri path mAuth = do

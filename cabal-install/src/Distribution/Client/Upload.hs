@@ -4,7 +4,7 @@ import Distribution.Client.Compat.Prelude
 import qualified Prelude as Unsafe (tail, head, read)
 
 import Distribution.Client.Types.Credentials
-         ( Auth(..), Credentials(..), Username(..), Password(..), unAuthCredentials )
+         ( Auth(..), Credentials(..), Username(..), Password(..), Token(..) )
 import Distribution.Client.Types.Repo (Repo, RemoteRepo(..), maybeRepoRemote)
 import Distribution.Client.Types.RepoName (unRepoName)
 import Distribution.Client.HttpUtils
@@ -40,10 +40,15 @@ stripExtensions exts path = foldM f path (reverse exts)
     | takeExtension p == '.':e = Just (dropExtension p)
     | otherwise = Nothing
 
-upload :: Verbosity -> RepoContext
-       -> Maybe Auth -> IsCandidate -> [FilePath]
+upload :: Verbosity
+       -> RepoContext
+       -> Maybe Username
+       -> Maybe Password
+       -> Maybe Token
+       -> IsCandidate
+       -> [FilePath]
        -> IO ()
-upload verbosity repoCtxt mAuth isCandidate paths = do
+upload verbosity repoCtxt mUsername mPassword mToken isCandidate paths = do
     let repos :: [Repo]
         repos = repoContextRepos repoCtxt
     transport  <- repoContextGetTransport repoCtxt
@@ -72,17 +77,17 @@ upload verbosity repoCtxt mAuth isCandidate paths = do
                   IsPublished -> ""
               ]
         }
-    let mCredentials = join $ fmap unAuthCredentials mAuth
-    username <- maybe (promptUsername domain) return
-                      (fmap credentialsUsername mCredentials)
-    password <- maybe (promptPassword domain) return
-                      (fmap credentialsPassword mCredentials)
-    let auth = Just $ AuthCredentials $ Credentials username password
+    auth <- case mToken of
+              (Just t) -> pure $ AuthToken t
+              _ -> do
+                username <- maybe (promptUsername domain) return mUsername
+                password <- maybe (promptPassword domain) return mPassword
+                pure $ AuthCredentials $ Credentials username password
     for_ paths $ \path -> do
       notice verbosity $ "Uploading " ++ path ++ "... "
       case fmap takeFileName (stripExtensions ["tar", "gz"] path) of
         Just pkgid -> handlePackage transport verbosity uploadURI
-                                    (packageURI pkgid) auth isCandidate path
+                                    (packageURI pkgid) (Just auth) isCandidate path
         -- This case shouldn't really happen, since we check in Main that we
         -- only pass tar.gz files to upload.
         Nothing -> die' verbosity $ "Not a tar.gz file: " ++ path

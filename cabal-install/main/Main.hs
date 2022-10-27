@@ -828,14 +828,9 @@ uploadAction uploadFlags extraArgs globalFlags = do
     else do
       Upload.upload verbosity
                     repoContext
-                    ( case (flagToMaybe $ uploadToken uploadFlags') of
-                        (Just t) -> Credentials.AuthToken <$> t
-                        _ -> Credentials.AuthCredentials <$>
-                               ( Credentials.Credentials
-                                   <$> (flagToMaybe $ uploadUsername uploadFlags')
-                                   <*> maybe_password
-                               )
-                    )
+                    (flagToMaybe $ uploadUsername uploadFlags')
+                    maybe_password
+                    (flagToMaybe $ uploadToken uploadFlags')
                     (fromFlag (uploadCandidate uploadFlags'))
                     tarfiles
     where
