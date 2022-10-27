@@ -413,9 +413,8 @@ curlTransport prog =
     addAuthConfig :: Maybe Credentials.Auth -> URI -> ProgramInvocation -> ProgramInvocation
     addAuthConfig explicitAuth uri progInvocation =
         case explicitAuth of
-            (Just (Credentials.AuthCredentials c)) -> addAuthCredentialsConfig (Just c) uri progInvocation
             (Just (Credentials.AuthToken t)) -> addAuthTokenConfig t progInvocation
-            Nothing -> addAuthCredentialsConfig Nothing uri progInvocation
+            mAuth -> addAuthCredentialsConfig (join $ fmap Credentials.unAuthCredentials mAuth) uri progInvocation
 
     addAuthCredentialsConfig :: Maybe Credentials.Credentials -> URI -> ProgramInvocation -> ProgramInvocation
     addAuthCredentialsConfig mCredentials uri progInvocation = do
@@ -444,7 +443,7 @@ curlTransport prog =
 
     addAuthTokenConfig :: Credentials.Token -> ProgramInvocation -> ProgramInvocation
     addAuthTokenConfig token progInvocation =
-        trace "Using token" progInvocation
+        progInvocation
             { progInvokeInput = Just . IODataText . unlines $
                 [ "--header \"Authorization: X-ApiKey " ++ Credentials.unToken token ++ "\""
                 ]
