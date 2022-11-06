@@ -4,7 +4,7 @@ module UnitTests.Distribution.Client.HttpUtils
 
 import Data.Maybe (fromJust)
 import Distribution.Client.HttpUtils (HttpTransport(..), configureTransport)
-import Distribution.Verbosity (silent)
+import Distribution.Verbosity (silent, verbose)
 import Network.URI (parseURI)
 import Test.Tasty
 import Test.Tasty.HUnit
@@ -18,7 +18,8 @@ tests = testGroup "HttpUtils"
 
 testPostHttpFileCurl :: IO ()
 testPostHttpFileCurl = do
-  let uri = fromJust $ parseURI "https://httpbin.org/headers"
+  let uri = fromJust $ parseURI "https://hackage.haskell.org/packages/candidates"
   transport <- configureTransport silent [] (Just "curl")
-  (code, _) <- postHttpFile transport silent uri "fixture/files/package.tar.gz" Nothing
+  (code, body) <- postHttpFile transport verbose uri "tests/fixtures/files/fake.tar.gz" Nothing
+  print body
   code @=? 200
