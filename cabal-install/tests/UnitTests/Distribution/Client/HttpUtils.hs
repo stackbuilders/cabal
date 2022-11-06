@@ -13,25 +13,23 @@ import Test.Tasty.HUnit
 tests :: TestTree
 tests = testGroup "HttpUtils"
   [ testGroup "postHttpFile"
-      [ testCase "curl" testPostHttpFileCurl
-      , testCase "curl" testPostHttpFileCurl2
+      [ testPostHttpFileByProgram "curl"
       ]
   ]
 
-testPostHttpFileCurl :: IO ()
-testPostHttpFileCurl = do
-  let uri = fromJust $ parseURI "https://hackage.haskell.org/packages/candidates"
-      auth = AuthToken $ Token "foo"
-  transport <- configureTransport silent [] (Just "curl")
-  (code, body) <- postHttpFile transport silent uri "tests/fixtures/files/fake.tar.gz" (Just auth)
-  code @=? 401
-  body @=? "Error: Bad auth token\n"
+testPostHttpFileByProgram :: String -> TestTree
+testPostHttpFileByProgram program = testGroup program
+  [ testCase "credentials" $ foo "curl"
+      (AuthToken $ Token "foo")
+      "Error: Bad auth token\n"
+  , testCase "token" $ foo "curl"
+      (AuthCredentials $ Credentials (Username "foo") (Password "bar"))
+      "Error: Username or password incorrect\n"
+  ]
 
-testPostHttpFileCurl2 :: IO ()
-testPostHttpFileCurl2 = do
+foo :: String -> Auth -> String -> IO ()
+foo program auth message = do
   let uri = fromJust $ parseURI "https://hackage.haskell.org/packages/candidates"
-      auth = AuthCredentials $ Credentials (Username "foo") (Password "bar")
-  transport <- configureTransport silent [] (Just "curl")
-  (code, body) <- postHttpFile transport silent uri "tests/fixtures/files/fake.tar.gz" (Just auth)
-  code @=? 401
-  body @=? "Error: Username or password incorrect\n"
+  transport <- configureTransport silent [] (Just program)
+  response <- postHttpFile transport silent uri "tests/fixtures/files/fake.tar.gz" (Just auth)
+  response @=? (401, message)
