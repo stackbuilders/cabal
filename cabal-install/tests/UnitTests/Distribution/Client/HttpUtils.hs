@@ -5,7 +5,7 @@ module UnitTests.Distribution.Client.HttpUtils
 import Data.Maybe (fromJust)
 import Distribution.Client.HttpUtils (HttpTransport(..), configureTransport)
 import Distribution.Client.Types.Credentials
-import Distribution.Verbosity (silent, verbose)
+import Distribution.Verbosity (silent)
 import Network.URI (parseURI)
 import Test.Tasty
 import Test.Tasty.HUnit
@@ -23,7 +23,7 @@ testPostHttpFileCurl = do
   let uri = fromJust $ parseURI "https://hackage.haskell.org/packages/candidates"
       auth = AuthToken $ Token "foo"
   transport <- configureTransport silent [] (Just "curl")
-  (code, body) <- postHttpFile transport verbose uri "tests/fixtures/files/fake.tar.gz" (Just auth)
+  (code, body) <- postHttpFile transport silent uri "tests/fixtures/files/fake.tar.gz" (Just auth)
   code @=? 401
   body @=? "Error: Bad auth token\n"
 
@@ -32,6 +32,6 @@ testPostHttpFileCurl2 = do
   let uri = fromJust $ parseURI "https://hackage.haskell.org/packages/candidates"
       auth = AuthCredentials $ Credentials (Username "foo") (Password "bar")
   transport <- configureTransport silent [] (Just "curl")
-  (code, body) <- postHttpFile transport verbose uri "tests/fixtures/files/fake.tar.gz" (Just auth)
+  (code, body) <- postHttpFile transport silent uri "tests/fixtures/files/fake.tar.gz" (Just auth)
   code @=? 401
   body @=? "Error: Username or password incorrect\n"
