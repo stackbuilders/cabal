@@ -460,7 +460,7 @@ curlTransport prog =
         (code, err, _etag) <- parseResponse verbosity uri resp ""
         return (code, err)
 
-    puthttpfile verbosity uri path mAuth headers = do
+    puthttpfile verbosity uri path mCredentials headers = do
         let args = [ show uri
                    , "--request", "PUT", "--data-binary", "@"++path
                    , "--write-out", "\n%{http_code}"
@@ -472,7 +472,7 @@ curlTransport prog =
                 ++ concat
                    [ ["--header", show name ++ ": " ++ value]
                    | Header name value <- headers ]
-        resp <- getProgramInvocationOutput verbosity $ addAuthCredentialsConfig mAuth uri
+        resp <- getProgramInvocationOutput verbosity $ addAuthCredentialsConfig mCredentials uri
                   (programInvocation prog args)
         (code, err, _etag) <- parseResponse verbosity uri resp ""
         return (code, err)
@@ -559,7 +559,8 @@ wgetTransport prog =
                      , "--server-response"
                      , "--output-document=" ++ responseFile
                      , "--header=Accept: text/plain"
-                     , "--header=Content-type: multipart/form-data; " ++ "boundary=" ++ boundary
+                     , "--header=Content-type: multipart/form-data; " ++
+                                              "boundary=" ++ boundary
                      ] ++ authArgs
           out <- runWGet verbosity (addUriAuth mCredentials uri) args
           (code, _etag) <- parseOutput verbosity uri out
