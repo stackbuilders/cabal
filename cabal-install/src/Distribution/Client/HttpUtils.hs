@@ -410,13 +410,12 @@ curlTransport prog =
 
     posthttp = noPostYet
 
-    addAuthConfig :: Maybe Credentials.Auth -> URI -> ProgramInvocation -> ProgramInvocation
     addAuthConfig explicitAuth uri progInvocation =
         case explicitAuth of
+            (Just (Credentials.AuthCredentials c)) -> addAuthCredentialsConfig (Just (Credentials.unCredentials c)) uri progInvocation
             (Just (Credentials.AuthToken t)) -> addAuthTokenConfig t progInvocation
-            mAuth -> addAuthCredentialsConfig (join $ fmap Credentials.unAuthCredentials mAuth) uri progInvocation
+            _ -> addAuthCredentialsConfig Nothing uri progInvocation
 
-    addAuthCredentialsConfig :: Maybe Credentials.Credentials -> URI -> ProgramInvocation -> ProgramInvocation
     addAuthCredentialsConfig mCredentials uri progInvocation = do
         -- attempt to derive a u/p pair from the uri authority if one exists
         -- all `uriUserInfo` values have '@' as a suffix. drop it.
@@ -424,13 +423,10 @@ curlTransport prog =
                                  (Just (URIAuth u _ _)) | not (null u) -> Just $ filter (/= '@') u
                                  _ -> Nothing
         -- prefer passed in auth to auth derived from uri. If neither exist, then no auth
-        let mbAuthString =
-              case (mCredentials, uriDerivedAuth) of
-                (Just c, _) ->
-                  let (u, p) = Credentials.unCredentials c
-                  in Just (u ++ ":" ++ p)
-                (Nothing, Just a) -> Just a
-                _ -> Nothing
+        let mbAuthString = case (mCredentials, uriDerivedAuth) of
+                            (Just (uname, passwd), _) -> Just (uname ++ ":" ++ passwd)
+                            (Nothing, Just a) -> Just a
+                            (Nothing, Nothing) -> Nothing
         case mbAuthString of
           Just up -> progInvocation
             { progInvokeInput = Just . IODataText . unlines $
@@ -476,9 +472,8 @@ curlTransport prog =
                 ++ concat
                    [ ["--header", show name ++ ": " ++ value]
                    | Header name value <- headers ]
-        resp <- getProgramInvocationOutput verbosity $ addAuthCredentialsConfig
-                    (fmap Credentials.mkCredentials mAuth) uri
-                    (programInvocation prog args)
+        resp <- getProgramInvocationOutput verbosity $ addAuthCredentialsConfig mAuth uri
+                  (programInvocation prog args)
         (code, err, _etag) <- parseResponse verbosity uri resp ""
         return (code, err)
 
