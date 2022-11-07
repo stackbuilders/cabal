@@ -852,22 +852,32 @@ plainHttpTransport =
 
     posthttpfile verbosity uri path mAuth = do
       (body, boundary) <- generateMultipartBody path
-      let mCredentials = join $ fmap Credentials.unAuthCredentials mAuth
+      let (authHeaders, mCredentials) = authHeadersAndCredentials mAuth
           headers = [ Header HdrContentType
                              ("multipart/form-data; boundary="++boundary)
                     , Header HdrContentLength (show (LBS8.length body))
                     , Header HdrAccept ("text/plain")
-                    ] ++ maybe [] (\(Credentials.Token t) -> [Header HdrAuthorization ("X-ApiKey " ++ t)]) (join $ fmap Credentials.unAuthToken mAuth)
+                    ] ++ authHeaders
           req = Request {
                   rqURI     = uri,
                   rqMethod  = POST,
                   rqHeaders = headers,
                   rqBody    = body
                 }
-      (_, resp) <- cabalBrowse verbosity
-                               (fmap Credentials.unCredentials mCredentials)
-                               (request req)
+      (_, resp) <- cabalBrowse verbosity mCredentials (request req)
       return (convertRspCode (rspCode resp), rspErrorString resp)
+
+    authHeadersAndCredentials mAuth =
+      case mAuth of
+        (Just (Credentials.AuthCredentials c)) ->
+          ( []
+          , Just (Credentials.unCredentials c)
+          )
+        (Just (Credentials.AuthToken (Credentials.Token t))) ->
+          ( [Header HdrAuthorization ("X-ApiKey " ++ t)]
+          , Nothing
+          )
+        _ -> ([], Nothing)
 
     puthttpfile verbosity uri path auth headers = do
       body <- LBS8.readFile path
