@@ -857,7 +857,7 @@ plainHttpTransport =
                              ("multipart/form-data; boundary="++boundary)
                     , Header HdrContentLength (show (LBS8.length body))
                     , Header HdrAccept ("text/plain")
-                    ]
+                    ] ++ maybe [] (\(Credentials.Token t) -> [Header HdrAuthorization ("X-ApiKey " ++ t)]) (join $ fmap Credentials.unAuthToken mAuth)
           req = Request {
                   rqURI     = uri,
                   rqMethod  = POST,

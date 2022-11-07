@@ -2,6 +2,7 @@ module UnitTests.Distribution.Client.HttpUtils
   ( tests
   ) where
 
+import Data.List (isInfixOf)
 import Data.Maybe (fromJust)
 import Distribution.Client.HttpUtils (HttpTransport(..), configureTransport)
 import Distribution.Client.Types.Credentials
@@ -13,23 +14,39 @@ import Test.Tasty.HUnit
 tests :: TestTree
 tests = testGroup "HttpUtils"
   [ testGroup "postHttpFile"
-      [ testPostHttpFileByProgram "curl"
+      [ testGroup "curl"
+          [ testCase "credentials" $ testPostHttpFileCurl
+              (AuthToken $ Token "foo")
+              "Bad auth token"
+          , testCase "token" $ testPostHttpFileCurl
+              (AuthCredentials $ Credentials (Username "foo") (Password "bar"))
+              "Username or password incorrect"
+          ]
+      -- , testPostHttpFile "wget"
+      -- , testPostHttpFile "powershell"
+      , testGroup "plain-http"
+          [ testCase "credentials" $ testPostHttpFilePlainHttp
+              (AuthToken $ Token "foo")
+              (401, "Bad auth token")
+          , testCase "token" $ testPostHttpFilePlainHttp
+              (AuthCredentials $ Credentials (Username "foo") (Password "bar"))
+              (400, "Bad Request")
+          ]
       ]
   ]
 
-testPostHttpFileByProgram :: String -> TestTree
-testPostHttpFileByProgram program = testGroup program
-  [ testCase "credentials" $ foo "curl"
-      (AuthToken $ Token "foo")
-      "Error: Bad auth token\n"
-  , testCase "token" $ foo "curl"
-      (AuthCredentials $ Credentials (Username "foo") (Password "bar"))
-      "Error: Username or password incorrect\n"
-  ]
-
-foo :: String -> Auth -> String -> IO ()
-foo program auth message = do
+testPostHttpFileCurl :: Auth -> String -> IO ()
+testPostHttpFileCurl auth message = do
   let uri = fromJust $ parseURI "https://hackage.haskell.org/packages/candidates"
-  transport <- configureTransport silent [] (Just program)
-  response <- postHttpFile transport silent uri "tests/fixtures/files/fake.tar.gz" (Just auth)
-  response @=? (401, message)
+  transport <- configureTransport silent [] (Just "curl")
+  (code, body) <- postHttpFile transport silent uri "tests/fixtures/files/fake.tar.gz" (Just auth)
+  code @?= 401
+  isInfixOf message body @? "Expect \"" ++ body ++ "\" to contain \""  ++ message ++ "\""
+
+testPostHttpFilePlainHttp :: Auth -> (Int, String) -> IO ()
+testPostHttpFilePlainHttp auth (expectedCode, message) = do
+  let uri = fromJust $ parseURI "http://hackage.haskell.org/packages/candidates"
+  transport <- configureTransport silent [] (Just "plain-http")
+  (code, body) <- postHttpFile transport silent uri "tests/fixtures/files/fake.tar.gz" (Just auth)
+  code @?= expectedCode
+  isInfixOf message body @? "Expect \"" ++ body ++ "\" to contain \""  ++ message ++ "\""

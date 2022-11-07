@@ -6,6 +6,7 @@ module Distribution.Client.Types.Credentials (
     Token (..),
     mkAuthCredentials,
     unAuthCredentials,
+    unAuthToken,
     unCredentials
 ) where
 
@@ -31,6 +32,10 @@ mkAuthCredentials (u, p) = AuthCredentials (Credentials (Username u) (Password p
 unAuthCredentials :: Auth -> Maybe Credentials
 unAuthCredentials (AuthCredentials c) = Just c
 unAuthCredentials _ = Nothing
+
+unAuthToken :: Auth -> Maybe Token
+unAuthToken (AuthToken t) = Just t
+unAuthToken _ = Nothing
 
 unCredentials :: Credentials -> (String, String)
 unCredentials (Credentials (Username u) (Password p)) = (u, p)
