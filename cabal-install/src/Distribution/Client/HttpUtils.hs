@@ -410,32 +410,33 @@ curlTransport prog =
 
     posthttp = noPostYet
 
-    addAuthConfig explicitAuth uri progInvocation =
-        case explicitAuth of
-            (Just (Credentials.AuthCredentials c)) -> addAuthCredentialsConfig (Just (Credentials.unCredentials c)) uri progInvocation
-            (Just (Credentials.AuthToken t)) -> addAuthTokenConfig t progInvocation
-            _ -> addAuthCredentialsConfig Nothing uri progInvocation
+    addAuthConfig' mAuth uri progInvocation =
+      case mAuth of
+        (Just (Credentials.AuthCredentials c)) ->
+          addAuthConfig (Just (Credentials.unCredentials c)) uri progInvocation
+        (Just (Credentials.AuthToken t)) -> addAuthTokenConfig t progInvocation
+        _ -> addAuthConfig Nothing uri progInvocation
 
-    addAuthCredentialsConfig mCredentials uri progInvocation = do
-        -- attempt to derive a u/p pair from the uri authority if one exists
-        -- all `uriUserInfo` values have '@' as a suffix. drop it.
-        let uriDerivedAuth = case uriAuthority uri of
-                                 (Just (URIAuth u _ _)) | not (null u) -> Just $ filter (/= '@') u
-                                 _ -> Nothing
-        -- prefer passed in auth to auth derived from uri. If neither exist, then no auth
-        let mbAuthString = case (mCredentials, uriDerivedAuth) of
-                            (Just (uname, passwd), _) -> Just (uname ++ ":" ++ passwd)
-                            (Nothing, Just a) -> Just a
-                            (Nothing, Nothing) -> Nothing
-        case mbAuthString of
-          Just up -> progInvocation
-            { progInvokeInput = Just . IODataText . unlines $
-                [ "--digest"
-                , "--user " ++ up
-                ]
-            , progInvokeArgs = ["--config", "-"] ++ progInvokeArgs progInvocation
-            }
-          Nothing -> progInvocation
+    addAuthConfig explicitAuth uri progInvocation = do
+      -- attempt to derive a u/p pair from the uri authority if one exists
+      -- all `uriUserInfo` values have '@' as a suffix. drop it.
+      let uriDerivedAuth = case uriAuthority uri of
+                               (Just (URIAuth u _ _)) | not (null u) -> Just $ filter (/= '@') u
+                               _ -> Nothing
+      -- prefer passed in auth to auth derived from uri. If neither exist, then no auth
+      let mbAuthString = case (explicitAuth, uriDerivedAuth) of
+                          (Just (uname, passwd), _) -> Just (uname ++ ":" ++ passwd)
+                          (Nothing, Just a) -> Just a
+                          (Nothing, Nothing) -> Nothing
+      case mbAuthString of
+        Just up -> progInvocation
+          { progInvokeInput = Just . IODataText . unlines $
+              [ "--digest"
+              , "--user " ++ up
+              ]
+          , progInvokeArgs = ["--config", "-"] ++ progInvokeArgs progInvocation
+          }
+        Nothing -> progInvocation
 
     addAuthTokenConfig token progInvocation =
         progInvocation
@@ -454,9 +455,8 @@ curlTransport prog =
                    , "--header", "Accept: text/plain"
                    , "--location"
                    ]
-        resp <- getProgramInvocationOutput verbosity $
-                  addAuthConfig mAuth uri
-                    (programInvocation prog args)
+        resp <- getProgramInvocationOutput verbosity $ addAuthConfig' mAuth uri
+                  (programInvocation prog args)
         (code, err, _etag) <- parseResponse verbosity uri resp ""
         return (code, err)
 
@@ -472,7 +472,7 @@ curlTransport prog =
                 ++ concat
                    [ ["--header", show name ++ ": " ++ value]
                    | Header name value <- headers ]
-        resp <- getProgramInvocationOutput verbosity $ addAuthCredentialsConfig mCredentials uri
+        resp <- getProgramInvocationOutput verbosity $ addAuthConfig mCredentials uri
                   (programInvocation prog args)
         (code, err, _etag) <- parseResponse verbosity uri resp ""
         return (code, err)
