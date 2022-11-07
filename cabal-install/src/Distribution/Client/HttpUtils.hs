@@ -441,7 +441,6 @@ curlTransport prog =
             }
           Nothing -> progInvocation
 
-    addAuthTokenConfig :: Credentials.Token -> ProgramInvocation -> ProgramInvocation
     addAuthTokenConfig token progInvocation =
         progInvocation
             { progInvokeInput = Just . IODataText . unlines $
@@ -465,7 +464,7 @@ curlTransport prog =
         (code, err, _etag) <- parseResponse verbosity uri resp ""
         return (code, err)
 
-    puthttpfile verbosity uri path mHttpAuth headers = do
+    puthttpfile verbosity uri path mAuth headers = do
         let args = [ show uri
                    , "--request", "PUT", "--data-binary", "@"++path
                    , "--write-out", "\n%{http_code}"
@@ -477,8 +476,8 @@ curlTransport prog =
                 ++ concat
                    [ ["--header", show name ++ ": " ++ value]
                    | Header name value <- headers ]
-        resp <- getProgramInvocationOutput verbosity $
-                  addAuthConfig (fmap Credentials.mkAuthCredentials mHttpAuth) uri
+        resp <- getProgramInvocationOutput verbosity $ addAuthCredentialsConfig
+                    (fmap Credentials.mkCredentials mAuth) uri
                     (programInvocation prog args)
         (code, err, _etag) <- parseResponse verbosity uri resp ""
         return (code, err)
@@ -559,23 +558,31 @@ wgetTransport prog =
           (body, boundary) <- generateMultipartBody path
           LBS.hPut tmpHandle body
           hClose tmpHandle
-          let mCredentials = join $ fmap Credentials.unAuthCredentials mAuth
+          let (authArgs, mCredentials) = authHeadersAndCredentials mAuth
               args = [ "--post-file=" ++ tmpFile
                      , "--user-agent=" ++ userAgent
                      , "--server-response"
                      , "--output-document=" ++ responseFile
                      , "--header=Accept: text/plain"
-                     , "--header=Content-type: multipart/form-data; " ++
-                                              "boundary=" ++ boundary ]
-          out <- runWGet verbosity
-                         ( addUriAuth (fmap Credentials.unCredentials mCredentials)
-                                      uri
-                         )
-                         args
+                     , "--header=Content-type: multipart/form-data; " ++ "boundary=" ++ boundary
+                     ] ++ authArgs
+          out <- runWGet verbosity (addUriAuth mCredentials uri) args
           (code, _etag) <- parseOutput verbosity uri out
           withFile responseFile ReadMode $ \hnd -> do
             resp <- hGetContents hnd
             evaluate $ force (code, resp)
+
+    authHeadersAndCredentials mAuth =
+      case mAuth of
+        (Just (Credentials.AuthCredentials c)) ->
+          ( []
+          , Just (Credentials.unCredentials c)
+          )
+        (Just (Credentials.AuthToken (Credentials.Token t))) ->
+          ( ["--header=Authorization: X-ApiKey " ++ t]
+          , Nothing
+          )
+        _ -> ([], Nothing)
 
     puthttpfile verbosity uri path auth headers =
         withTempFile (takeDirectory path) "response" $

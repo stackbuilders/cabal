@@ -4,7 +4,7 @@ module Distribution.Client.Types.Credentials (
     Username (..),
     Password (..),
     Token (..),
-    mkAuthCredentials,
+    mkCredentials,
     unAuthCredentials,
     unAuthToken,
     unCredentials
@@ -26,8 +26,8 @@ newtype Username = Username { unUsername :: String }
 newtype Password = Password { unPassword :: String }
 newtype Token = Token { unToken :: String }
 
-mkAuthCredentials :: (String, String) -> Auth
-mkAuthCredentials (u, p) = AuthCredentials (Credentials (Username u) (Password p))
+mkCredentials :: (String, String) -> Credentials
+mkCredentials (u, p) = Credentials (Username u) (Password p)
 
 unAuthCredentials :: Auth -> Maybe Credentials
 unAuthCredentials (AuthCredentials c) = Just c
