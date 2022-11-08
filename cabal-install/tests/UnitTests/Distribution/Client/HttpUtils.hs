@@ -51,7 +51,9 @@ testPostHttpFile program auth (expectedCode, message) = do
   case response of
     (Left (err :: SomeException)) -> do
       let body = displayException err
-      isInfixOf message body @? "Expect \"" ++ body ++ "\" to contain \""  ++ message ++ "\""
+      isInfixOf message body @? errMessage body
     (Right (code, body)) -> do
       code @?= expectedCode
-      isInfixOf message body @? "Expect \"" ++ body ++ "\" to contain \""  ++ message ++ "\""
+      isInfixOf message body @? errMessage body
+  where
+    errMessage body = "Expect \"" ++ body ++ "\" to contain \""  ++ message ++ "\""
