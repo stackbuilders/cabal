@@ -4,7 +4,7 @@ module UnitTests.Distribution.Client.HttpUtils
   ( tests
   ) where
 
-import Control.Exception
+import Control.Exception (SomeException, displayException, try)
 import Data.List (isInfixOf)
 import Data.Maybe (fromJust)
 import Distribution.Client.HttpUtils (HttpTransport(..), configureTransport)
@@ -24,8 +24,8 @@ tests = testGroup "HttpUtils"
           (401, "Username/Password Authentication Failed")
           (401, "Username/Password Authentication Failed")
       , postHttpFileTests "powershell"
-          (401, "")
-          (401, "")
+          (401, "Username or password incorrect")
+          (401, "Bad auth token")
       , postHttpFileTests "plain-http"
           (400, "Bad Request")
           (401, "Bad auth token")
@@ -46,7 +46,7 @@ postHttpFileTests program credentialsExpectations tokenExpectations =
 testPostHttpFile :: String -> Auth -> (Int, String) -> IO ()
 testPostHttpFile program auth (expectedCode, message) = do
   let uri = fromJust $ parseURI "http://hackage.haskell.org/packages/candidates"
-  transport <- configureTransport silent [] (Just program)
+  transport <- configureTransport silent ["/Users/sestrella/.local/bin"] (Just program)
   response <- try $ postHttpFile transport silent uri "tests/fixtures/files/fake.tar.gz" (Just auth)
   case response of
     (Left (err :: SomeException)) -> do

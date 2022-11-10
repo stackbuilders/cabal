@@ -697,7 +697,7 @@ powershellTransport prog =
               ("multipart/form-data; boundary=" ++ boundary)
         resp <- runPowershellScript verbosity $ webclientScript
           (escape (show uri))
-          ( setupHeaders (contentHeader : extraHeaders) ++
+          ( setupHeaders (contentHeader : extraHeaders (join $ fmap Credentials.unAuthToken mAuth)) ++
             setupAuth (fmap Credentials.unCredentials mCredentials)
           )
           (uploadFileAction "POST" uri fullPath)
@@ -708,7 +708,7 @@ powershellTransport prog =
       fullPath <- canonicalizePath path
       resp <- runPowershellScript verbosity $ webclientScript
         (escape (show uri))
-        (setupHeaders (extraHeaders ++ headers) ++ setupAuth auth)
+        (setupHeaders (extraHeaders Nothing ++ headers) ++ setupAuth auth)
         (uploadFileAction "PUT" uri fullPath)
         uploadFileCleanup
       parseUploadResponse verbosity uri resp
@@ -730,7 +730,12 @@ powershellTransport prog =
     escape = show
 
     useragentHeader = Header HdrUserAgent userAgent
-    extraHeaders = [Header HdrAccept "text/plain", useragentHeader]
+    extraHeaders mToken =
+      case mToken of
+        (Just (Credentials.Token t)) ->
+          let authorizationHeader = Header HdrAuthorization ("X-ApiKey " ++ t)
+          in [Header HdrAccept "text/plain", useragentHeader, authorizationHeader]
+        Nothing -> [Header HdrAccept "text/plain", useragentHeader]
 
     setupHeaders headers =
       [ "$request." ++ addHeader name value
