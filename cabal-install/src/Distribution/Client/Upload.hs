@@ -40,11 +40,13 @@ stripExtensions exts path = foldM f path (reverse exts)
     | takeExtension p == '.':e = Just (dropExtension p)
     | otherwise = Nothing
 
+-- | Uploads source packages or documentation to Hackage. If the 'Token' is
+-- specified it takes precedence over 'Username' and 'Password'.
 upload :: Verbosity
        -> RepoContext
-       -> Maybe Username
-       -> Maybe Password
-       -> Maybe Token
+       -> Maybe Username -- | Hackage username
+       -> Maybe Password -- | Hackage password
+       -> Maybe Token -- | Hackage token
        -> IsCandidate
        -> [FilePath]
        -> IO ()
@@ -79,7 +81,7 @@ upload verbosity repoCtxt mUsername mPassword mToken isCandidate paths = do
         }
     auth <- case mToken of
               (Just t) -> pure $ AuthToken t
-              _ -> do
+              Nothing -> do
                 username <- maybe (promptUsername domain) return mUsername
                 password <- maybe (promptPassword domain) return mPassword
                 pure $ AuthCredentials $ Credentials username password

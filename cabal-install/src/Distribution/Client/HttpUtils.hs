@@ -415,7 +415,7 @@ curlTransport prog =
         (Just (Credentials.AuthCredentials c)) ->
           addAuthConfig (Just (Credentials.unCredentials c)) uri progInvocation
         (Just (Credentials.AuthToken t)) -> addAuthTokenConfig t progInvocation
-        _ -> addAuthConfig Nothing uri progInvocation
+        Nothing -> addAuthConfig Nothing uri progInvocation
 
     addAuthConfig explicitAuth uri progInvocation = do
       -- attempt to derive a u/p pair from the uri authority if one exists
@@ -578,7 +578,7 @@ wgetTransport prog =
           ( ["--header=Authorization: X-ApiKey " ++ t]
           , Nothing
           )
-        _ -> ([], Nothing)
+        Nothing -> ([], Nothing)
 
     puthttpfile verbosity uri path auth headers =
         withTempFile (takeDirectory path) "response" $
@@ -734,7 +734,6 @@ powershellTransport prog =
     escape = show
 
     useragentHeader = Header HdrUserAgent userAgent
-
     extraHeaders mToken =
         let authHeaders = maybe [] (\(Credentials.Token t) -> [Header HdrAuthorization ("X-ApiKey " ++ t)]) mToken
         in [Header HdrAccept "text/plain", useragentHeader] ++ authHeaders
@@ -887,7 +886,7 @@ plainHttpTransport =
           ( [Header HdrAuthorization ("X-ApiKey " ++ t)]
           , Nothing
           )
-        _ -> ([], Nothing)
+        Nothing -> ([], Nothing)
 
     puthttpfile verbosity uri path auth headers = do
       body <- LBS8.readFile path
