@@ -413,14 +413,14 @@ curlTransport prog =
 
     posthttp = noPostYet
 
-    addAuthConfig' mAuth uri progInvocation =
+    addAuthConfig mAuth uri progInvocation =
       case mAuth of
         (Just (AuthCredentials c)) ->
-          addAuthConfig (Just (unCredentials c)) uri progInvocation
+          addAuthCredentialsConfig (Just (unCredentials c)) uri progInvocation
         (Just (AuthToken t)) -> addAuthTokenConfig t progInvocation
-        Nothing -> addAuthConfig Nothing uri progInvocation
+        Nothing -> addAuthCredentialsConfig Nothing uri progInvocation
 
-    addAuthConfig explicitAuth uri progInvocation = do
+    addAuthCredentialsConfig explicitAuth uri progInvocation = do
       -- attempt to derive a u/p pair from the uri authority if one exists
       -- all `uriUserInfo` values have '@' as a suffix. drop it.
       let uriDerivedAuth = case uriAuthority uri of
@@ -458,7 +458,7 @@ curlTransport prog =
                    , "--header", "Accept: text/plain"
                    , "--location"
                    ]
-        resp <- getProgramInvocationOutput verbosity $ addAuthConfig' mAuth uri
+        resp <- getProgramInvocationOutput verbosity $ addAuthConfig mAuth uri
                   (programInvocation prog args)
         (code, err, _etag) <- parseResponse verbosity uri resp ""
         return (code, err)
@@ -475,7 +475,7 @@ curlTransport prog =
                 ++ concat
                    [ ["--header", show name ++ ": " ++ value]
                    | Header name value <- headers ]
-        resp <- getProgramInvocationOutput verbosity $ addAuthConfig' mAuth uri
+        resp <- getProgramInvocationOutput verbosity $ addAuthConfig mAuth uri
                   (programInvocation prog args)
         (code, err, _etag) <- parseResponse verbosity uri resp ""
         return (code, err)
