@@ -461,8 +461,7 @@ curlTransport prog =
         return (code, err)
 
     puthttpfile verbosity uri path mAuth headers = do
-        let mCredentials = undefined mAuth
-            args = [ show uri
+        let args = [ show uri
                    , "--request", "PUT", "--data-binary", "@"++path
                    , "--write-out", "\n%{http_code}"
                    , "--user-agent", userAgent
@@ -473,7 +472,7 @@ curlTransport prog =
                 ++ concat
                    [ ["--header", show name ++ ": " ++ value]
                    | Header name value <- headers ]
-        resp <- getProgramInvocationOutput verbosity $ addAuthConfig mCredentials uri
+        resp <- getProgramInvocationOutput verbosity $ addAuthConfig' mAuth uri
                   (programInvocation prog args)
         (code, err, _etag) <- parseResponse verbosity uri resp ""
         return (code, err)
@@ -562,7 +561,9 @@ wgetTransport prog =
                      , "--header=Accept: text/plain"
                      , "--header=Content-type: multipart/form-data; " ++
                                               "boundary=" ++ boundary
-                     ] ++ authArgs
+                     ]
+                  ++ authArgs
+
           out <- runWGet verbosity (addUriAuth mCredentials uri) args
           (code, _etag) <- parseOutput verbosity uri out
           withFile responseFile ReadMode $ \hnd -> do
@@ -585,7 +586,7 @@ wgetTransport prog =
         withTempFile (takeDirectory path) "response" $
         \responseFile responseHandle -> do
             hClose responseHandle
-            let auth = undefined mAuth
+            let (authArgs, mCredentials) = authHeadersAndCredentials mAuth
                 args = [ "--method=PUT", "--body-file="++path
                        , "--user-agent=" ++ userAgent
                        , "--server-response"
@@ -593,8 +594,9 @@ wgetTransport prog =
                        , "--header=Accept: text/plain" ]
                     ++ [ "--header=" ++ show name ++ ": " ++ value
                        | Header name value <- headers ]
+                    ++ authArgs
 
-            out <- runWGet verbosity (addUriAuth auth uri) args
+            out <- runWGet verbosity (addUriAuth mCredentials uri) args
             (code, _etag) <- parseOutput verbosity uri out
             withFile responseFile ReadMode $ \hnd -> do
               resp <- hGetContents hnd
@@ -711,11 +713,11 @@ powershellTransport prog =
         Nothing -> (Nothing, Nothing)
 
     puthttpfile verbosity uri path mAuth headers = do
-      let auth = undefined mAuth
+      let (mCredentials, mToken) = extractCredentialsOrToken mAuth
       fullPath <- canonicalizePath path
       resp <- runPowershellScript verbosity $ webclientScript
         (escape (show uri))
-        (setupHeaders (extraHeaders Nothing ++ headers) ++ setupAuth auth)
+        (setupHeaders (extraHeaders mToken ++ headers) ++ setupAuth mCredentials)
         (uploadFileAction "PUT" uri fullPath)
         uploadFileCleanup
       parseUploadResponse verbosity uri resp
@@ -893,16 +895,16 @@ plainHttpTransport =
 
     puthttpfile verbosity uri path mAuth headers = do
       body <- LBS8.readFile path
-      let auth = undefined mAuth
+      let (authHeaders, mCredentials) = authHeadersAndCredentials mAuth
           req = Request {
                   rqURI     = uri,
                   rqMethod  = PUT,
                   rqHeaders = Header HdrContentLength (show (LBS8.length body))
                             : Header HdrAccept "text/plain"
-                            : headers,
+                            : headers ++ authHeaders,
                   rqBody    = body
                 }
-      (_, resp) <- cabalBrowse verbosity auth (request req)
+      (_, resp) <- cabalBrowse verbosity mCredentials (request req)
       return (convertRspCode (rspCode resp), rspErrorString resp)
 
     convertRspCode (a,b,c) = a*100 + b*10 + c

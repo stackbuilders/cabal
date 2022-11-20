@@ -40,8 +40,8 @@ stripExtensions exts path = foldM f path (reverse exts)
     | takeExtension p == '.':e = Just (dropExtension p)
     | otherwise = Nothing
 
--- | Uploads source packages or documentation to Hackage. If the 'Token' is
--- specified it takes precedence over 'Username' and 'Password'.
+-- | Uploads source packages to Hackage. If the 'Token' is specified it takes
+-- precedence over 'Username' and 'Password'.
 upload
   :: Verbosity
   -> RepoContext
@@ -90,12 +90,14 @@ upload verbosity repoCtxt mUsername mPassword mToken isCandidate paths = do
         -- only pass tar.gz files to upload.
         Nothing -> die' verbosity $ "Not a tar.gz file: " ++ path
 
+-- | Uploads documentation to Hackage. If the 'Token' is specified it takes
+-- precedence over 'Username' and 'Password'.
 uploadDoc
   :: Verbosity
   -> RepoContext
-  -> Maybe Username
-  -> Maybe Password
-  -> Maybe Token
+  -> Maybe Username -- | Hackage username
+  -> Maybe Password -- | Hackage password
+  -> Maybe Token -- | Hackage token
   -> IsCandidate
   -> FilePath
   -> IO ()
