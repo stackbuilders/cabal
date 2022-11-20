@@ -39,7 +39,10 @@ import Distribution.Client.Version
          ( cabalInstallVersion )
 import Distribution.Client.Types
          ( unRepoName, RemoteRepo(..) )
-import qualified Distribution.Client.Types.Credentials as Credentials
+import Distribution.Client.Types.Credentials
+         ( Auth(..), Token(..)
+         , unCredentials
+         )
 import Distribution.System
          ( buildOS, buildArch )
 import qualified System.FilePath.Posix as FilePath.Posix
@@ -275,19 +278,19 @@ data HttpTransport = HttpTransport {
 
       -- | POST a resource to a URI, with optional auth (username, password)
       -- and return the HTTP status code and any redirect URL.
-      postHttp :: Verbosity -> URI -> String -> Maybe Auth
+      postHttp :: Verbosity -> URI -> String -> Maybe BasicAuth
                -> IO (HttpCode, String),
 
       -- | POST a file resource to a URI using multipart\/form-data encoding,
       -- with optional auth (username, password) and return the HTTP status
       -- code and any error string.
-      postHttpFile :: Verbosity -> URI -> FilePath -> Maybe Credentials.Auth
+      postHttpFile :: Verbosity -> URI -> FilePath -> Maybe Auth
                    -> IO (HttpCode, String),
 
       -- | PUT a file resource to a URI, with optional auth
       -- (username, password), extra headers and return the HTTP status code
       -- and any error string.
-      putHttpFile :: Verbosity -> URI -> FilePath -> Maybe Credentials.Auth -> [Header]
+      putHttpFile :: Verbosity -> URI -> FilePath -> Maybe Auth -> [Header]
                   -> IO (HttpCode, String),
 
       -- | Whether this transport supports https or just http.
@@ -301,9 +304,9 @@ data HttpTransport = HttpTransport {
     }
     --TODO: why does postHttp return a redirect, but postHttpFile return errors?
 
-type HttpCode = Int
-type ETag     = String
-type Auth     = (String, String)
+type HttpCode  = Int
+type ETag      = String
+type BasicAuth = (String, String)
 
 noPostYet :: Verbosity -> URI -> String -> Maybe (String, String)
           -> IO (Int, String)
@@ -412,9 +415,9 @@ curlTransport prog =
 
     addAuthConfig' mAuth uri progInvocation =
       case mAuth of
-        (Just (Credentials.AuthCredentials c)) ->
-          addAuthConfig (Just (Credentials.unCredentials c)) uri progInvocation
-        (Just (Credentials.AuthToken t)) -> addAuthTokenConfig t progInvocation
+        (Just (AuthCredentials c)) ->
+          addAuthConfig (Just (unCredentials c)) uri progInvocation
+        (Just (AuthToken t)) -> addAuthTokenConfig t progInvocation
         Nothing -> addAuthConfig Nothing uri progInvocation
 
     addAuthConfig explicitAuth uri progInvocation = do
@@ -441,7 +444,7 @@ curlTransport prog =
     addAuthTokenConfig token progInvocation =
         progInvocation
             { progInvokeInput = Just . IODataText . unlines $
-                [ "--header \"Authorization: X-ApiKey " ++ Credentials.unToken token ++ "\""
+                [ "--header \"Authorization: X-ApiKey " ++ unToken token ++ "\""
                 ]
             , progInvokeArgs = ["--config", "-"] ++ progInvokeArgs progInvocation
             }
@@ -553,7 +556,7 @@ wgetTransport prog =
           (body, boundary) <- generateMultipartBody path
           LBS.hPut tmpHandle body
           hClose tmpHandle
-          let (authArgs, mCredentials) = authHeadersAndCredentials mAuth
+          let (authArgs, m) = authHeadersAndCredentials mAuth
               args = [ "--post-file=" ++ tmpFile
                      , "--user-agent=" ++ userAgent
                      , "--server-response"
@@ -564,7 +567,7 @@ wgetTransport prog =
                      ]
                   ++ authArgs
 
-          out <- runWGet verbosity (addUriAuth mCredentials uri) args
+          out <- runWGet verbosity (addUriAuth m uri) args
           (code, _etag) <- parseOutput verbosity uri out
           withFile responseFile ReadMode $ \hnd -> do
             resp <- hGetContents hnd
@@ -572,11 +575,11 @@ wgetTransport prog =
 
     authHeadersAndCredentials mAuth =
       case mAuth of
-        (Just (Credentials.AuthCredentials c)) ->
+        (Just (AuthCredentials c)) ->
           ( []
-          , Just (Credentials.unCredentials c)
+          , Just (unCredentials c)
           )
-        (Just (Credentials.AuthToken (Credentials.Token t))) ->
+        (Just (AuthToken (Token t))) ->
           ( ["--header=Authorization: X-ApiKey " ++ t]
           , Nothing
           )
@@ -708,16 +711,16 @@ powershellTransport prog =
 
     extractCredentialsOrToken mAuth =
       case mAuth of
-        (Just (Credentials.AuthCredentials c)) -> (Just $ Credentials.unCredentials c, Nothing)
-        (Just (Credentials.AuthToken t)) -> (Nothing, Just t)
+        (Just (AuthCredentials c)) -> (Just $ unCredentials c, Nothing)
+        (Just (AuthToken t)) -> (Nothing, Just t)
         Nothing -> (Nothing, Nothing)
 
     puthttpfile verbosity uri path mAuth headers = do
-      let (mCredentials, mToken) = extractCredentialsOrToken mAuth
+      let (m, mToken) = extractCredentialsOrToken mAuth
       fullPath <- canonicalizePath path
       resp <- runPowershellScript verbosity $ webclientScript
         (escape (show uri))
-        (setupHeaders (extraHeaders mToken ++ headers) ++ setupAuth mCredentials)
+        (setupHeaders (extraHeaders mToken ++ headers) ++ setupAuth m)
         (uploadFileAction "PUT" uri fullPath)
         uploadFileCleanup
       parseUploadResponse verbosity uri resp
@@ -740,7 +743,7 @@ powershellTransport prog =
 
     useragentHeader = Header HdrUserAgent userAgent
     extraHeaders mToken =
-        let authHeaders = maybe [] (\(Credentials.Token t) -> [Header HdrAuthorization ("X-ApiKey " ++ t)]) mToken
+        let authHeaders = maybe [] (\(Token t) -> [Header HdrAuthorization ("X-ApiKey " ++ t)]) mToken
         in [Header HdrAccept "text/plain", useragentHeader] ++ authHeaders
 
     setupHeaders headers =
@@ -883,11 +886,11 @@ plainHttpTransport =
 
     authHeadersAndCredentials mAuth =
       case mAuth of
-        (Just (Credentials.AuthCredentials c)) ->
+        (Just (AuthCredentials c)) ->
           ( []
-          , Just (Credentials.unCredentials c)
+          , Just (unCredentials c)
           )
-        (Just (Credentials.AuthToken (Credentials.Token t))) ->
+        (Just (AuthToken (Token t))) ->
           ( [Header HdrAuthorization ("X-ApiKey " ++ t)]
           , Nothing
           )
