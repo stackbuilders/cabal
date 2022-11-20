@@ -42,14 +42,15 @@ stripExtensions exts path = foldM f path (reverse exts)
 
 -- | Uploads source packages or documentation to Hackage. If the 'Token' is
 -- specified it takes precedence over 'Username' and 'Password'.
-upload :: Verbosity
-       -> RepoContext
-       -> Maybe Username -- | Hackage username
-       -> Maybe Password -- | Hackage password
-       -> Maybe Token -- | Hackage token
-       -> IsCandidate
-       -> [FilePath]
-       -> IO ()
+upload
+  :: Verbosity
+  -> RepoContext
+  -> Maybe Username -- | Hackage username
+  -> Maybe Password -- | Hackage password
+  -> Maybe Token -- | Hackage token
+  -> IsCandidate
+  -> [FilePath]
+  -> IO ()
 upload verbosity repoCtxt mUsername mPassword mToken isCandidate paths = do
     let repos :: [Repo]
         repos = repoContextRepos repoCtxt
@@ -79,12 +80,7 @@ upload verbosity repoCtxt mUsername mPassword mToken isCandidate paths = do
                   IsPublished -> ""
               ]
         }
-    auth <- case mToken of
-              (Just t) -> pure $ AuthToken t
-              Nothing -> do
-                username <- maybe (promptUsername domain) return mUsername
-                password <- maybe (promptPassword domain) return mPassword
-                pure $ AuthCredentials $ Credentials username password
+    auth <- mkAuth domain mUsername mPassword mToken
     for_ paths $ \path -> do
       notice verbosity $ "Uploading " ++ path ++ "... "
       case fmap takeFileName (stripExtensions ["tar", "gz"] path) of
@@ -94,10 +90,16 @@ upload verbosity repoCtxt mUsername mPassword mToken isCandidate paths = do
         -- only pass tar.gz files to upload.
         Nothing -> die' verbosity $ "Not a tar.gz file: " ++ path
 
-uploadDoc :: Verbosity -> RepoContext
-          -> Maybe Username -> Maybe Password -> IsCandidate -> FilePath
-          -> IO ()
-uploadDoc verbosity repoCtxt mUsername mPassword isCandidate path = do
+uploadDoc
+  :: Verbosity
+  -> RepoContext
+  -> Maybe Username
+  -> Maybe Password
+  -> Maybe Token
+  -> IsCandidate
+  -> FilePath
+  -> IO ()
+uploadDoc verbosity repoCtxt mUsername mPassword mToken isCandidate path = do
     let repos = repoContextRepos repoCtxt
     transport  <- repoContextGetTransport repoCtxt
     targetRepo <-
@@ -132,16 +134,13 @@ uploadDoc verbosity repoCtxt mUsername mPassword isCandidate path = do
     when (reverse reverseSuffix /= "docs.tar.gz"
           || null reversePkgid || Unsafe.head reversePkgid /= '-') $
       die' verbosity "Expected a file name matching the pattern <pkgid>-docs.tar.gz"
-    Username username <- maybe (promptUsername domain) return mUsername
-    Password password <- maybe (promptPassword domain) return mPassword
-
-    let auth = Just (username,password)
-        headers =
+    auth <- mkAuth domain mUsername mPassword mToken
+    let headers =
           [ Header HdrContentType "application/x-tar"
           , Header HdrContentEncoding "gzip"
           ]
     notice verbosity $ "Uploading documentation " ++ path ++ "... "
-    resp <- putHttpFile transport verbosity uploadURI path auth headers
+    resp <- putHttpFile transport verbosity uploadURI path (Just auth) headers
     case resp of
       -- Hackage responds with 204 No Content when docs are uploaded
       -- successfully.
@@ -163,6 +162,20 @@ uploadDoc verbosity repoCtxt mUsername mPassword isCandidate path = do
         "Package documentation successfully published. You can now view it at '"
         ++ show packageUri ++ "'."
 
+
+mkAuth
+  :: String
+  -> Maybe Username
+  -> Maybe Password
+  -> Maybe Token
+  -> IO Auth
+mkAuth domain mUsername mPassword mToken =
+  case mToken of
+    (Just t) -> pure $ AuthToken t
+    Nothing -> do
+      username <- maybe (promptUsername domain) return mUsername
+      password <- maybe (promptPassword domain) return mPassword
+      pure $ AuthCredentials $ Credentials username password
 
 promptUsername :: String -> IO Username
 promptUsername domain = do

@@ -287,7 +287,7 @@ data HttpTransport = HttpTransport {
       -- | PUT a file resource to a URI, with optional auth
       -- (username, password), extra headers and return the HTTP status code
       -- and any error string.
-      putHttpFile :: Verbosity -> URI -> FilePath -> Maybe Auth -> [Header]
+      putHttpFile :: Verbosity -> URI -> FilePath -> Maybe Credentials.Auth -> [Header]
                   -> IO (HttpCode, String),
 
       -- | Whether this transport supports https or just http.
@@ -460,8 +460,9 @@ curlTransport prog =
         (code, err, _etag) <- parseResponse verbosity uri resp ""
         return (code, err)
 
-    puthttpfile verbosity uri path mCredentials headers = do
-        let args = [ show uri
+    puthttpfile verbosity uri path mAuth headers = do
+        let mCredentials = undefined mAuth
+            args = [ show uri
                    , "--request", "PUT", "--data-binary", "@"++path
                    , "--write-out", "\n%{http_code}"
                    , "--user-agent", userAgent
@@ -580,11 +581,12 @@ wgetTransport prog =
           )
         Nothing -> ([], Nothing)
 
-    puthttpfile verbosity uri path auth headers =
+    puthttpfile verbosity uri path mAuth headers =
         withTempFile (takeDirectory path) "response" $
         \responseFile responseHandle -> do
             hClose responseHandle
-            let args = [ "--method=PUT", "--body-file="++path
+            let auth = undefined mAuth
+                args = [ "--method=PUT", "--body-file="++path
                        , "--user-agent=" ++ userAgent
                        , "--server-response"
                        , "--output-document=" ++ responseFile
@@ -708,7 +710,8 @@ powershellTransport prog =
         (Just (Credentials.AuthToken t)) -> (Nothing, Just t)
         Nothing -> (Nothing, Nothing)
 
-    puthttpfile verbosity uri path auth headers = do
+    puthttpfile verbosity uri path mAuth headers = do
+      let auth = undefined mAuth
       fullPath <- canonicalizePath path
       resp <- runPowershellScript verbosity $ webclientScript
         (escape (show uri))
@@ -888,9 +891,10 @@ plainHttpTransport =
           )
         Nothing -> ([], Nothing)
 
-    puthttpfile verbosity uri path auth headers = do
+    puthttpfile verbosity uri path mAuth headers = do
       body <- LBS8.readFile path
-      let req = Request {
+      let auth = undefined mAuth
+          req = Request {
                   rqURI     = uri,
                   rqMethod  = PUT,
                   rqHeaders = Header HdrContentLength (show (LBS8.length body))

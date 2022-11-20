@@ -823,6 +823,7 @@ uploadAction uploadFlags extraArgs globalFlags = do
                        repoContext
                        (flagToMaybe $ uploadUsername uploadFlags')
                        maybe_password
+                       (flagToMaybe $ uploadToken uploadFlags')
                        (fromFlag (uploadCandidate uploadFlags'))
                        tarfile
     else do
