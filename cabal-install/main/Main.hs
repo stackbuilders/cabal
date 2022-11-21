@@ -805,7 +805,6 @@ uploadAction uploadFlags extraArgs globalFlags = do
   when (null tarfiles && not (fromFlag (uploadDoc uploadFlags'))) $
     die' verbosity "the 'upload' command expects at least one .tar.gz archive."
   checkTarFiles extraArgs
-  -- TODO: only do this if the token is not present
   maybe_password <-
     case uploadPasswordCmd uploadFlags'
     of Flag (xs:xss) -> Just . Password <$>
