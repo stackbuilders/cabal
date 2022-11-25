@@ -9,6 +9,7 @@ import qualified UnitTests.Distribution.Client.FetchUtils
 import qualified UnitTests.Distribution.Client.Get
 import qualified UnitTests.Distribution.Client.Glob
 import qualified UnitTests.Distribution.Client.GZipUtils
+import qualified UnitTests.Distribution.Client.HttpUtils
 import qualified UnitTests.Distribution.Client.IndexUtils
 import qualified UnitTests.Distribution.Client.IndexUtils.Timestamp
 import qualified UnitTests.Distribution.Client.Init
@@ -19,6 +20,7 @@ import qualified UnitTests.Distribution.Client.ProjectPlanning
 import qualified UnitTests.Distribution.Client.Store
 import qualified UnitTests.Distribution.Client.Tar
 import qualified UnitTests.Distribution.Client.Targets
+import qualified UnitTests.Distribution.Client.Types.Credentials
 import qualified UnitTests.Distribution.Client.UserConfig
 import qualified UnitTests.Distribution.Solver.Modular.Builder
 import qualified UnitTests.Distribution.Solver.Modular.RetryLog
@@ -42,6 +44,8 @@ main = do
         UnitTests.Distribution.Client.Glob.tests
     , testGroup "Distribution.Client.GZipUtils"
         UnitTests.Distribution.Client.GZipUtils.tests
+    , testGroup "Distribution.Client.HttpUtils"
+        UnitTests.Distribution.Client.HttpUtils.tests
     , testGroup "UnitTests.Distribution.Client.IndexUtils"
         UnitTests.Distribution.Client.IndexUtils.tests
     , testGroup "UnitTests.Distribution.Client.IndexUtils.Timestamp"
@@ -62,6 +66,8 @@ main = do
         UnitTests.Distribution.Client.Tar.tests
     , testGroup "Distribution.Client.Targets"
         UnitTests.Distribution.Client.Targets.tests
+    , testGroup "Distribution.Client.Types.Credentials"
+        UnitTests.Distribution.Client.Types.Credentials.tests
     , testGroup "UnitTests.Distribution.Client.UserConfig"
         UnitTests.Distribution.Client.UserConfig.tests
     , testGroup "UnitTests.Distribution.Solver.Modular.Builder"

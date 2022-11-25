@@ -14,8 +14,8 @@ import Network.URI (parseURI)
 import Test.Tasty
 import Test.Tasty.HUnit
 
-tests :: TestTree
-tests = testGroup "HttpUtils"
+tests :: [TestTree]
+tests = pure $ testGroup "HttpUtils"
   [ testGroup "postHttpFile"
       [ postHttpFileTests "curl"
           (401, "Username or password incorrect")
