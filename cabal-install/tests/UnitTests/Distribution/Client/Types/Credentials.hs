@@ -7,15 +7,14 @@ import Test.Tasty
 import Test.Tasty.HUnit
 
 tests :: [TestTree]
-tests = pure $ testGroup "Crendentials"
-  [ 
-    testGroup "mkCredentials"
+tests = pure $ testGroup "Credentials"
+  [ testGroup "mkCredentials"
       [ testCase "creates credentials" $
           let credentials = ("username", "password")
               credentialsExpectation = (Credentials (Username "username") (Password "password"))
           in (mkCredentials credentials) @?= credentialsExpectation
-      ],
-    testGroup "unAuthCredentials"
+      ]
+  , testGroup "unAuthCredentials"
       [ testCase "unwraps credentials" $
           let auth = (AuthCredentials (Credentials (Username "username") (Password "password")))
               credentialsExpectation = (Just (Credentials (Username "username") (Password "password")))
@@ -24,8 +23,8 @@ tests = pure $ testGroup "Crendentials"
           let auth = (AuthToken (Token "token"))
               credentialsExpectation = Nothing
           in (unAuthCredentials auth) @?= credentialsExpectation
-      ],
-    testGroup "unAuthToken"
+      ]
+   , testGroup "unAuthToken"
       [ testCase "unwraps token" $
           let auth = (AuthToken (Token "token"))
               credentialsExpectation = (Just (Token "token"))
@@ -34,8 +33,8 @@ tests = pure $ testGroup "Crendentials"
           let auth = (AuthCredentials (Credentials (Username "username") (Password "password")))
               credentialsExpectation = Nothing
           in (unAuthToken auth) @?= credentialsExpectation
-      ],
-    testGroup "unCredentials"
+      ]
+   , testGroup "unCredentials"
       [ testCase "returns username and password" $
           let credentials = (Credentials (Username "username") (Password "password"))
               expectedPair = ("username", "password")
