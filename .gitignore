@@ -82,3 +82,12 @@ bench.html
 
 # Emacs
 .projectile
+
+# direnv
+.direnv/
+.envrc
+
+# nix
+flake.lock
+flake.nix
+shell.nix
