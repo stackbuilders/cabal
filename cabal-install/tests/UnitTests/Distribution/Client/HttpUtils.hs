@@ -9,85 +9,78 @@ import Data.List (isInfixOf)
 import Data.Maybe (fromJust)
 import Distribution.Client.HttpUtils (HttpTransport(..), configureTransport)
 import Distribution.Client.Types.Credentials
-import Distribution.Verbosity (silent, verbose)
+import Distribution.Verbosity (silent)
 import Network.URI (parseURI)
 import Test.Tasty
 import Test.Tasty.HUnit
 
 tests :: [TestTree]
 tests = pure $ testGroup "HttpUtils"
-  -- [ testGroup "postHttpFile"
-  --     [ postHttpFileTests "curl"
-  --         (401, "Username or password incorrect")
-  --         (401, "Bad auth token")
-  --     , postHttpFileTests "wget"
-  --         (401, "Username/Password Authentication Failed")
-  --         (401, "Username/Password Authentication Failed")
-  --     , postHttpFileTests "powershell"
-  --         (401, "Username or password incorrect")
-  --         (401, "Bad auth token")
-  --     , postHttpFileTests "plain-http"
-  --         (400, "Bad Request")
-  --         (401, "Bad auth token")
-  --     ]
-  [ testGroup "putHttpFile"
-      [ putHttpFileTests "curl"
-          (200, "") -- FIXME
-          (200, "\"Authorization\": \"X-ApiKey foo\"")
-      , putHttpFileTests "wget"
-          (200, "") -- FIXME
-          (200, "\"Authorization\": \"X-ApiKey foo\"")
+  [ testGroup "postHttpFile"
+      [ postHttpFileTests "curl"
+          "Username or password incorrect"
+          "Bad auth token"
+      , postHttpFileTests "wget"
+          "Username/Password Authentication Failed"
+          "Username/Password Authentication Failed"
+      , postHttpFileTests "powershell"
+          "Username or password incorrect"
+          "Bad auth token"
+      , postHttpFileTests "plain-http"
+          "Bad Request"
+          "Bad auth token"
       ]
+  , testGroup "putHttpFile"
+      [ putHttpFileTests "curl"
+          "\"Authorization\": \"X-ApiKey foo\""
+     , putHttpFileTests "wget"
+         "\"Authorization\": \"X-ApiKey foo\""
+     , putHttpFileTests "powershell"
+         "\"Authorization\": \"X-ApiKey foo\""
+     ]
   ]
 
-postHttpFileTests :: String -> (Int, String) -> (Int, String) -> TestTree
-postHttpFileTests program credentialsExpectations tokenExpectations =
+postHttpFileTests :: String -> String -> String -> TestTree
+postHttpFileTests program credentialsMessage tokenMessage =
   testGroup program
     [ testCase "credentials" $ testPostHttpFile program
         (AuthCredentials $ Credentials (Username "foo") (Password "bar"))
-        credentialsExpectations
+        credentialsMessage
     , testCase "token" $ testPostHttpFile program
         (AuthToken $ Token "foo")
-        tokenExpectations
+        tokenMessage
+    ]
+ 
+putHttpFileTests :: String -> String -> TestTree
+putHttpFileTests program tokenMessage =
+  testGroup program
+    [ testCase "token" $ testPutHttpFile program
+        (AuthToken $ Token "foo")
+        tokenMessage
     ]
 
-testPostHttpFile :: String -> Auth -> (Int, String) -> IO ()
-testPostHttpFile program auth (expectedCode, message) = do
+testPostHttpFile :: String -> Auth -> String -> IO ()
+testPostHttpFile program auth message = do
   let uri = fromJust $ parseURI "http://hackage.haskell.org/packages/candidates"
   transport <- configureTransport silent [] (Just program)
-  response <- try $ postHttpFile transport silent uri "tests/fixtures/files/test-upload-0.1.0.0.tar.gz" (Just auth)
+  response <- try $ postHttpFile transport silent uri "tests/fixtures/files/test-upload.tar.gz" (Just auth)
   case response of
-    (Left (err :: SomeException)) -> do
-      let body = displayException err
-      isInfixOf message body @? errMessage body
-    (Right (code, body)) -> do
-      code @?= expectedCode
-      isInfixOf message body @? errMessage body
+    (Left (e :: SomeException)) ->
+      let body = displayException e
+      in isInfixOf message body @? errMessage body
+    (Right (_, body)) -> isInfixOf message body @? errMessage body
   where
     errMessage body = "Expect \"" ++ body ++ "\" to contain \""  ++ message ++ "\""
 
-putHttpFileTests :: String -> (Int, String) -> (Int, String) -> TestTree
-putHttpFileTests program credentialsExpectations tokenExpectations =
-  testGroup program
-    [ testCase "credentials" $ testPutHttpFile program
-        (AuthCredentials $ Credentials (Username "foo") (Password "bar"))
-        credentialsExpectations
-    , testCase "token" $ testPutHttpFile program
-        (AuthToken $ Token "foo")
-        tokenExpectations
-    ]
-
-testPutHttpFile :: String -> Auth -> (Int, String) -> IO ()
-testPutHttpFile program auth (expectedCode, message) = do
+testPutHttpFile :: String -> Auth -> String -> IO ()
+testPutHttpFile program auth message = do
   let uri = fromJust $ parseURI "http://httpbin.org/anything"
   transport <- configureTransport silent [] (Just program)
-  response <- try $ putHttpFile transport verbose uri "tests/fixtures/files/test-upload-0.1.0.0-docs.tar.gz" (Just auth) []
+  response <- try $ postHttpFile transport silent uri "tests/fixtures/files/test-upload.tar.gz" (Just auth)
   case response of
-    (Left (err :: SomeException)) -> do
-      let body = displayException err
-      isInfixOf message body @? errMessage body
-    (Right (code, body)) -> do
-      code @?= expectedCode
-      isInfixOf message body @? errMessage body
+    (Left (e :: SomeException)) ->
+      let body = displayException e
+      in isInfixOf message body @? errMessage body
+    (Right (_, body)) -> isInfixOf message body @? errMessage body
   where
     errMessage body = "Expect \"" ++ body ++ "\" to contain \""  ++ message ++ "\""
