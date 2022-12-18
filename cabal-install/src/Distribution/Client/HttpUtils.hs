@@ -556,7 +556,7 @@ wgetTransport prog =
           (body, boundary) <- generateMultipartBody path
           LBS.hPut tmpHandle body
           hClose tmpHandle
-          let (authArgs, m) = authHeadersAndCredentials mAuth
+          let (authArgs, mCredentials) = authHeadersAndCredentials mAuth
               args = [ "--post-file=" ++ tmpFile
                      , "--user-agent=" ++ userAgent
                      , "--server-response"
@@ -567,7 +567,7 @@ wgetTransport prog =
                      ]
                   ++ authArgs
 
-          out <- runWGet verbosity (addUriAuth m uri) args
+          out <- runWGet verbosity (addUriAuth mCredentials uri) args
           (code, _etag) <- parseOutput verbosity uri out
           withFile responseFile ReadMode $ \hnd -> do
             resp <- hGetContents hnd
